@@ -2,6 +2,39 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+struct ShaderProgramSource {
+	std::string VertexSource;
+	std::string FragmentSource;
+};
+
+static ShaderProgramSource parseShader(const std::string& filePath) {
+	std::ifstream stream(filePath);
+
+	enum class ShaderType {
+		NONE = -1, VERTEX = 0, FRAGMENT = 1
+	};
+
+	std::string line;
+	std::stringstream ss[2];
+	ShaderType type = ShaderType::NONE;
+
+	while (getline(stream, line)) {
+		if (line.find("#shader") != std::string::npos) {
+			if (line.find("vertex") != std::string::npos) {
+				type = ShaderType::VERTEX;
+				// set mode to vertex
+			}
+			else if (line.find("fragment") != std::string::npos) {
+				type = ShaderType::FRAGMENT;
+			}
+		}
+		else {
+			ss[(int)type] << line << '\n';
+		}
+	}
+	return { ss[0].str(), ss[1].str() };
+}
+
 static unsigned int compileShader(unsigned int type, const std::string& source) {
 	unsigned int id = glCreateShader(type);
 	const char* src = source.c_str();
@@ -52,7 +85,7 @@ int main(void)
 		return -1;
 	}
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
+	window = glfwCreateWindow(500, 500, "Hello World", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -84,10 +117,16 @@ int main(void)
 
 	std::cout << glGetString(GL_VERSION) << std::endl;
 
-	float positions[6] = {
-		-0.5f, -0.5f,
-		 0.0f,  0.5f,
-		 0.5f, -0.5f,
+	float positions[] = {
+		-0.5f, -0.5f, // 0
+		 0.5f, -0.5f, // 1
+		 0.5f,  0.5f, // 2
+		-0.5f,  0.5f  // 3
+	};
+
+	unsigned int indices[] = {
+		0, 1, 2,
+		2, 3, 0
 	};
 
 	unsigned int buffer;
@@ -99,7 +138,7 @@ int main(void)
 	// next we are creating the bufferdata to give opengl the data we are working
 	// with and the size of it. Since we created a buffer, but did not actually put
 	// anything in it
-	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(float), positions, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(float), positions, GL_STATIC_DRAW);
 	// once buffer is bound, we can tell opengl what the layout of our buffer is.
 	glEnableVertexAttribArray(0);
 	// index we want to   \/   ^ enable
@@ -116,26 +155,14 @@ int main(void)
 	// first we create them with glGenBuffers(size, &key) then we bind it to the
 	// currently used buffer with glBindBuffers(type(enum), key)
 
-	std::string vertexShader =
-		"#version 330 core\n"
-		"\n"
-		"layout (location = 0) in vec4 position\n;"
-		"\n"
-		"void main()\n"
-		"{\n"
-		"   gl_Position = position;\n"
-		"}\n";
+	unsigned int ibo;
+	glGenBuffers(1, &ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(unsigned int), indices, GL_STATIC_DRAW);
+	
+	ShaderProgramSource source = parseShader("res/shaders/Basic.shader");
 
-	std::string fragmentShader =
-		"#version 330 core\n"
-		"\n"
-		"layout(location = 0) out vec4 color\n;"
-		"\n"
-		"void main()\n"
-		"{\n"
-		"   color = vec4(1.0, 0.0, 0.0, 1.0);\n"
-		"}\n";
-	unsigned int shader = createShader(vertexShader, fragmentShader);
+	unsigned int shader = createShader(source.VertexSource, source.FragmentSource);
 	glUseProgram(shader);
 
 	/* Loop until the user closes the window */
@@ -145,7 +172,7 @@ int main(void)
 		glClear(GL_COLOR_BUFFER_BIT);
 		
 		// issue draw call for created buffer
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 		// only do that ^ if you dont have an index buffer. We dont
 		// have to pass in any values because they are all already
 		// selected
@@ -157,7 +184,7 @@ int main(void)
 		glfwPollEvents();
 	}
 	std::cout << "Program closed!";
-	glDeleteProgram(shader);
+	//glDeleteProgram(shader);
 
 	glfwTerminate();
 	return 0;
