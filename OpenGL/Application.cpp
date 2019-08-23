@@ -2,6 +2,47 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+static unsigned int compileShader(unsigned int type, const std::string& source) {
+	unsigned int id = glCreateShader(type);
+	const char* src = source.c_str();
+	glShaderSource(id, 1, &src, nullptr);
+	glCompileShader(id);
+
+	int result;
+	glGetShaderiv(id, GL_COMPILE_STATUS, &result);
+	if (result == GL_FALSE) {
+		int length;
+		glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
+		char* message = (char*)alloca(length * sizeof(char));
+		glGetShaderInfoLog(id, length, &length, message);
+		std::cout << "Failed to compile " << (type == GL_VERTEX_SHADER ? "vertex" : "fragment") << " shader" << std::endl;
+		std::cout << message << std::endl;
+		glDeleteShader(id);
+		return 0;
+	}
+
+	// Need error handling for syntax and stuff in the shader source code
+
+	return id;
+}
+
+// take in two shaders to compile them. The string is the shader source code, you can take it in from a file or something.
+static unsigned int createShader(const std::string& vertexShader, const std::string& fragmentShader) {
+	unsigned int program = glCreateProgram();
+	unsigned int vs = compileShader(GL_VERTEX_SHADER, vertexShader);
+	unsigned int fs = compileShader(GL_FRAGMENT_SHADER, fragmentShader);
+
+	glAttachShader(program, vs);
+	glAttachShader(program, fs);
+	glLinkProgram(program);
+	glValidateProgram(program);
+
+	glDeleteShader(vs);
+	glDeleteShader(fs);
+
+	return program;
+}
+
 int main(void)
 {
 	GLFWwindow* window;
@@ -54,6 +95,11 @@ int main(void)
 	glGenBuffers(1, &buffer);
 	// create buffers^ then set \/ as active
 	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+
+	// next we are creating the bufferdata to give opengl the data we are working
+	// with and the size of it. Since we created a buffer, but did not actually put
+	// anything in it
+	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(float), positions, GL_STATIC_DRAW);
 	// once buffer is bound, we can tell opengl what the layout of our buffer is.
 	glEnableVertexAttribArray(0);
 	// index we want to   \/   ^ enable
@@ -70,10 +116,28 @@ int main(void)
 	// first we create them with glGenBuffers(size, &key) then we bind it to the
 	// currently used buffer with glBindBuffers(type(enum), key)
 
-	// next we are creating the bufferdata to give opengl the data we are working
-	// with and the size of it. Since we created a buffer, but did not actually put
-	// anything in it
-	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(float), positions, GL_STATIC_DRAW);
+	std::string vertexShader =
+		"#version 330 core\n"
+		"\n"
+		"layout (location = 0) in vec4 position\n;"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"   gl_Position = position;\n"
+		"}\n";
+
+	std::string fragmentShader =
+		"#version 330 core\n"
+		"\n"
+		"layout(location = 0) out vec4 color\n;"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"   color = vec4(1.0, 0.0, 0.0, 1.0);\n"
+		"}\n";
+	unsigned int shader = createShader(vertexShader, fragmentShader);
+	glUseProgram(shader);
+
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
 	{
@@ -93,6 +157,7 @@ int main(void)
 		glfwPollEvents();
 	}
 	std::cout << "Program closed!";
+	glDeleteProgram(shader);
 
 	glfwTerminate();
 	return 0;
