@@ -32,6 +32,7 @@ int main(void)
 	// a vertex is not a position, it can contain much more than that.
 	// it is just mostly used to mean that.
 	// so he will call it a vertex position
+	
 
 	/* Make the window's context current */
 	glfwMakeContextCurrent(window);
@@ -54,8 +55,13 @@ int main(void)
 	// create buffers^ then set \/ as active
 	glBindBuffer(GL_ARRAY_BUFFER, buffer);
 	// once buffer is bound, we can tell opengl what the layout of our buffer is.
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float)*2, sizeof(float))
-	
+	glEnableVertexAttribArray(0);
+	// index we want to   \/   ^ enable
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0);
+	// this is the starting index, amount of indexes in each pair, valuetype, normalize?
+	// , amount of bytes between each pair of values, and finally offset between each
+	// attribute (only needed if you store multiple values like texture data too
+
 	// dynamic is changed values (updated every frame) and drawn often
 
 	// we are storing the cache (buffer) with the variable name buffer to access it.
