@@ -1,6 +1,4 @@
 #include "Main.h"
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
 const char* get_platform_name() {
 	return (PLATFORM_NAME == NULL) ? "" : PLATFORM_NAME;
 }
@@ -103,7 +101,7 @@ int main(void)
 		return -1;
 	}
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(500, 500, "Hello World", NULL, NULL);
+	window = glfwCreateWindow(1000, 1000, "Hello World", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -135,6 +133,10 @@ int main(void)
 		return -1;
 	}
 
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // core/compat profile
+
 	std::cout << "Driver Version:    " << glGetString(GL_VERSION) << std::endl;
 	std::cout << "Operating System:  " << get_platform_name() << std::endl;
 
@@ -154,6 +156,12 @@ int main(void)
 		0, 1, 2,
 		2, 3, 0
 	};
+
+	unsigned int vao;
+	GLCall(glGenVertexArrays(1, &vao));
+	GLCall(glBindVertexArray(vao)); // when we bind a vertex array and a buffer,
+	// nothing links them together, but when we use vertex attrib pointer, we are
+	// setting the 0 position in the current vertex array. Same with index buffer
 
 	unsigned int buffer;
 	// & is used for the memory address
@@ -199,6 +207,7 @@ int main(void)
 
 
 
+	GLCall(glBindVertexArray(0));
 	GLCall(glUseProgram(0));
 	GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
 	GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
@@ -222,17 +231,19 @@ int main(void)
 		GLCall(glClear(GL_COLOR_BUFFER_BIT));
 
 
-		GLCall(glUseProgram(shader));
-		GLCall(glUniform4f(location, r, g, b, a));
+		GLCall(glUseProgram(shader)); // bind our shader
+		GLCall(glUniform4f(location, r, g, b, a)); // setup our uniforms
 
-		GLCall(glBindBuffer(GL_ARRAY_BUFFER, buffer));
-		GLCall(glEnableVertexAttribArray(0));
-		GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0));
+		// TAKEN CARE OF BY VERTEX ARRAY -- GLCall(glBindBuffer(GL_ARRAY_BUFFER, buffer)); // bind our vertex buffer
+		// TAKEN CARE OF BY VERTEX ARRAY -- GLCall(glEnableVertexAttribArray(0)); // set up the layout of that vertex buffer
+		// TAKEN CARE OF BY VERTEX ARRAY -- GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0));// set up the layout of that vertex buffer
 
-		GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo));
+		// TAKEN CARE OF BY VERTEX ARRAY -- GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo)); // bind our index buffer
+
+		GLCall(glBindVertexArray(vao)); // Takes care of that stuff ^
 
 		// issue draw call for created buffer
-		GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr));
+		GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr)); // draw the triangles
 		// only do that ^ if you dont have an index buffer. We dont
 		// have to pass in any values because they are all already
 		// selected
