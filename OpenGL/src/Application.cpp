@@ -7,6 +7,10 @@
 #include "IndexBuffer.h"
 #include "VertexBuffer.h"
 
+
+
+// https://www.youtube.com/watch?v=oD1dvfbyf6A&list=PLlrATfBNZ98foTJPJ_Ev03o2oq3-GGOS2&index=14
+
 struct ShaderProgramSource {
 	std::string VertexSource;
 	std::string FragmentSource;
