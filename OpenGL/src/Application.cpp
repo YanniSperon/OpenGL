@@ -2,87 +2,16 @@
 #include <iostream>
 #include <fstream>
 
-#include "Renderer.h"
-
 #include "IndexBuffer.h"
 #include "VertexBuffer.h"
+#include "VertexArray.h"
+#include "Shader.h"
+#include "GLErrorManager.h"
 
+#include "Renderer.h"
 
-
-// https://www.youtube.com/watch?v=oD1dvfbyf6A&list=PLlrATfBNZ98foTJPJ_Ev03o2oq3-GGOS2&index=14
-
-struct ShaderProgramSource {
-	std::string VertexSource;
-	std::string FragmentSource;
-};
-
-static ShaderProgramSource parseShader(const std::string& filePath) {
-	std::ifstream stream(filePath);
-
-	enum class ShaderType {
-		NONE = -1, VERTEX = 0, FRAGMENT = 1
-	};
-
-	std::string line;
-	std::stringstream ss[2];
-	ShaderType type = ShaderType::NONE;
-
-	while (getline(stream, line)) {
-		if (line.find("#shader") != std::string::npos) {
-			if (line.find("vertex") != std::string::npos) {
-				type = ShaderType::VERTEX;
-				// set mode to vertex
-			}
-			else if (line.find("fragment") != std::string::npos) {
-				type = ShaderType::FRAGMENT;
-			}
-		}
-		else {
-			ss[(int)type] << line << '\n';
-		}
-	}
-	return { ss[0].str(), ss[1].str() };
-}
-
-static unsigned int compileShader(unsigned int type, const std::string& source) {
-	unsigned int id = glCreateShader(type);
-	const char* src = source.c_str();
-	glShaderSource(id, 1, &src, nullptr);
-	glCompileShader(id);
-
-	int result;
-	glGetShaderiv(id, GL_COMPILE_STATUS, &result);
-	if (result == GL_FALSE) {
-		int length;
-		glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
-		char* message = (char*)alloca(length * sizeof(char));
-		glGetShaderInfoLog(id, length, &length, message);
-		std::cout << "Failed to compile " << (type == GL_VERTEX_SHADER ? "vertex" : "fragment") << " shader" << std::endl;
-		std::cout << message << std::endl;
-		glDeleteShader(id);
-		return 0;
-	}
-
-	// Need error handling for syntax and stuff in the shader source code
-
-	return id;
-}
-
-// take in two shaders to compile them. The string is the shader source code, you can take it in from a file or something.
-static unsigned int createShader(const std::string& vertexShader, const std::string& fragmentShader) {
-	unsigned int program = glCreateProgram();
-	unsigned int vs = compileShader(GL_VERTEX_SHADER, vertexShader);
-	unsigned int fs = compileShader(GL_FRAGMENT_SHADER, fragmentShader);
-
-	glAttachShader(program, vs);
-	glAttachShader(program, fs);
-	glLinkProgram(program);
-	glValidateProgram(program);
-
-	glDeleteShader(vs);
-	glDeleteShader(fs);
-
-	return program;
+const char* get_platform_name() {
+	return (PLATFORM_NAME == nullptr) ? "" : PLATFORM_NAME;
 }
 
 int main(void)
@@ -150,51 +79,27 @@ int main(void)
 			2, 3, 0
 		};
 
-		unsigned int vao;
-		GLCall(glGenVertexArrays(1, &vao));
-		GLCall(glBindVertexArray(vao)); // when we bind a vertex array and a buffer,
-		// nothing links them together, but when we use vertex attrib pointer, we are
-		// setting the 0 position in the current vertex array. Same with index buffer
 
+		VertexArray va;
 		VertexBuffer vb(positions, 4 * 2 * sizeof(float));
 
-		// once buffer is bound, we can tell opengl what the layout of our buffer is.
-		GLCall(glEnableVertexAttribArray(0));
-		// index we want to   \/   ^ enable
-		GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0));
-		// this is the starting index, amount of indexes in each pair, valuetype, normalize?
-		// , amount of bytes between each pair of values (stride), and finally offset between each
-		// attribute (only needed if you store multiple values like texture data too
+		va.AddBuffer(vb, 2);
 
-		// dynamic is changed values (updated every frame) and drawn often
-
-		// we are storing the cache (buffer) with the variable name buffer to access it.
-		// it returns an integer which is used like a key in a dictionary
-
-		// first we create them with glGenBuffers(size, &key) then we bind it to the
-		// currently used buffer with glBindBuffers(type(enum), key)
+		
 
 		IndexBuffer ib(indices, 6);
 
-		ShaderProgramSource source = parseShader("res/shaders/Basic.shader");
-
-		unsigned int shader = createShader(source.VertexSource, source.FragmentSource);
-		GLCall(glUseProgram(shader));
-
-		// var name in shader of uniform
-		int location = glGetUniformLocation(shader, "u_Color");
-		ASSERT(location != -1);
-		GLCall(glUniform4f(location, 0.8f, 0.3f, 0.8f, 1.0f));
+		Shader shader("res/shaders/Basic.shader");
 
 
+		shader.SetUniform4f("u_Color", 0.8f, 0.3f, 0.8f, 1.0f);
+		
+		va.Unbind();
+		vb.Unbind();
+		ib.Unbind();
+		shader.Unbind();
 
-
-		GLCall(glBindVertexArray(0));
-		GLCall(glUseProgram(0));
-		GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
-		GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
-
-
+		Renderer renderer;
 
 
 		float r = 0.0f;
@@ -210,26 +115,18 @@ int main(void)
 		while (!glfwWindowShouldClose(window))
 		{
 			/* Render here */
-			GLCall(glClear(GL_COLOR_BUFFER_BIT));
+			renderer.Clear();
 
 
-			GLCall(glUseProgram(shader)); // bind our shader
-			GLCall(glUniform4f(location, r, g, b, a)); // setup our uniforms
 
-			// TAKEN CARE OF BY VERTEX ARRAY -- GLCall(glBindBuffer(GL_ARRAY_BUFFER, buffer)); // bind our vertex buffer
-			// TAKEN CARE OF BY VERTEX ARRAY -- GLCall(glEnableVertexAttribArray(0)); // set up the layout of that vertex buffer
-			// TAKEN CARE OF BY VERTEX ARRAY -- GLCall(glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0));// set up the layout of that vertex buffer
 
-			// TAKEN CARE OF BY VERTEX ARRAY -- GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo)); // bind our index buffer
 
-			GLCall(glBindVertexArray(vao)); // Takes care of that stuff ^
+			shader.SetUniform4f("u_Color", r, g, b, a);
 
-			// issue draw call for created buffer
-			GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr)); // draw the triangles
-			// only do that ^ if you dont have an index buffer. We dont
-			// have to pass in any values because they are all already
-			// selected
-			/* Swap front and back buffers */
+			renderer.Draw(va, ib, shader);
+
+
+
 
 
 			if (r >= 1.0f) {
@@ -260,13 +157,15 @@ int main(void)
 
 
 
+			/* Swap front and back buffers */
+
 			glfwSwapBuffers(window);
+
 
 			/* Poll for and process events */
 
 			glfwPollEvents();
 		}
-		GLCall(glDeleteProgram(shader));
 	}
 	glfwTerminate();
 	return 0;

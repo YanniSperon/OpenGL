@@ -1,21 +1,16 @@
 #include "Renderer.h"
 #include <iostream>
+#include "GLErrorManager.h"
 
-const char* get_platform_name() {
-	return (PLATFORM_NAME == NULL) ? "" : PLATFORM_NAME;
+void Renderer::Clear() const {
+	GLCall(glClear(GL_COLOR_BUFFER_BIT));
 }
 
-void GLClearError() {
-	while (glGetError());
-}
-
-bool GLLogCall(const char* function, const char* file, int line) {
-	while (GLenum error = glGetError()) {
-		std::cout << std::endl << "[OpenGL Error] (" << "0x" << std::hex << error << std::dec
-			<< " -- " << error << "):" << std::endl << "        Function: -   " <<
-			function << std::endl << "        File:     -   " << file << std::endl
-			<< "        Line:     -   " << line << std::endl;
-		return false;
-	}
-	return true;
+void Renderer::Draw(const VertexArray& va, const IndexBuffer& ib, const Shader& shader) const
+{
+	shader.Bind();
+	va.Bind();
+	ib.Bind();
+	GLCall(glDrawElements(GL_TRIANGLES, ib.GetCount(), GL_UNSIGNED_INT, nullptr));
+	// unbinding not needed since stuff gets rebound next call anyways
 }
